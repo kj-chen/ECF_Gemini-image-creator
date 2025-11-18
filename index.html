@@ -1,0 +1,2600 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECF 增強版 Gemini 2.5 圖像生成器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* 高質感滾動條設計 */
+        ::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #334155 0%, #475569 50%, #64748b 100%);
+            border-radius: 10px;
+            border: 2px solid rgba(15, 23, 42, 0.5);
+            box-shadow:
+                0 2px 8px rgba(0, 0, 0, 0.4),
+                inset 0 1px 3px rgba(148, 163, 184, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #475569 0%, #64748b 50%, #94a3b8 100%);
+            box-shadow:
+                0 4px 15px rgba(0, 0, 0, 0.5),
+                inset 0 1px 3px rgba(148, 163, 184, 0.3),
+                0 0 20px rgba(96, 165, 250, 0.2);
+            transform: scale(1.1);
+        }
+
+        ::-webkit-scrollbar-thumb:active {
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
+            box-shadow:
+                0 2px 10px rgba(96, 165, 250, 0.6),
+                inset 0 1px 3px rgba(255, 255, 255, 0.2);
+        }
+
+        ::-webkit-scrollbar-corner {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            border-radius: 5px;
+        }
+
+        /* 針對不同元素的滾動條定制 */
+        .left-panel::-webkit-scrollbar-thumb,
+        .right-panel::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
+            border: 2px solid rgba(30, 41, 59, 0.5);
+        }
+
+        .left-panel::-webkit-scrollbar-thumb:hover,
+        .right-panel::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #334155 0%, #475569 50%, #64748b 100%);
+            box-shadow:
+                0 4px 15px rgba(0, 0, 0, 0.5),
+                inset 0 1px 3px rgba(96, 165, 250, 0.2),
+                0 0 15px rgba(52, 211, 153, 0.15);
+        }
+
+        .center-panel::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            border: 2px solid rgba(15, 23, 42, 0.6);
+        }
+
+        .center-panel::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
+            box-shadow:
+                0 4px 15px rgba(0, 0, 0, 0.5),
+                inset 0 1px 3px rgba(147, 51, 234, 0.2),
+                0 0 15px rgba(147, 51, 234, 0.15);
+        }
+
+        /* Firefox 滾動條支援 */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #475569 #1e293b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            overflow-x: auto;
+            color: #e2e8f0;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1920px;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
+            color: #f1f5f9;
+            padding: 25px 40px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            margin-bottom: 8px;
+            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.5);
+            color: #f1f5f9;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.85;
+            color: #cbd5e1;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            min-height: calc(100vh - 120px);
+        }
+
+        /* 左側面板 */
+        .left-panel {
+            width: 400px;
+            background: linear-gradient(180deg, #1e293b 0%, #334155 100%);
+            padding: 25px;
+            border-right: 1px solid rgba(148, 163, 184, 0.15);
+            overflow-y: auto;
+            height: calc(100vh - 120px);
+            position: sticky;
+            top: 120px;
+            backdrop-filter: blur(10px);
+        }
+
+        /* 中間主要區域 */
+        .center-panel {
+            flex: 1;
+            padding: 25px;
+            overflow-y: auto;
+            background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+        }
+
+        /* 右側面板 */
+        .right-panel {
+            width: 450px;
+            background: linear-gradient(180deg, #1e293b 0%, #334155 100%);
+            padding: 25px;
+            border-left: 1px solid rgba(148, 163, 184, 0.15);
+            overflow-y: auto;
+            height: calc(100vh - 120px);
+            position: sticky;
+            top: 120px;
+            backdrop-filter: blur(10px);
+        }
+
+        .panel-section {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            backdrop-filter: blur(20px);
+            transition: all 0.3s ease;
+        }
+
+        .panel-section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .panel-section h3 {
+            color: #60a5fa;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        /* 摺疊功能 */
+        .collapsible-header {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: color 0.3s ease;
+        }
+
+        .collapsible-header:hover {
+            color: #34d399;
+        }
+
+        .collapsible-content {
+            max-height: 1000px;
+            overflow: hidden;
+            transition: max-height 0.4s ease;
+        }
+
+        .collapsible-content.collapsed {
+            max-height: 0;
+            padding: 0;
+            margin: 0;
+        }
+
+        /* 統一生成按鈕特殊樣式 */
+        .unified-generate-btn {
+            width: 100%;
+            padding: 20px;
+            background: linear-gradient(135deg, #9333ea 0%, #f59e0b 50%, #10b981 100%);
+            color: #ffffff;
+            border: none;
+            border-radius: 30px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 25px 0;
+            box-shadow: 0 10px 40px rgba(147, 51, 234, 0.4);
+            position: relative;
+            overflow: hidden;
+            animation: pulseGlow 3s ease-in-out infinite;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% {
+                box-shadow: 0 10px 40px rgba(147, 51, 234, 0.4);
+            }
+            50% {
+                box-shadow: 0 15px 50px rgba(147, 51, 234, 0.6);
+            }
+        }
+
+        .unified-generate-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.6s;
+        }
+
+        .unified-generate-btn:hover::before {
+            left: 100%;
+        }
+
+        .unified-generate-btn:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 15px 50px rgba(147, 51, 234, 0.6);
+            background: linear-gradient(135deg, #7c3aed 0%, #d97706 50%, #059669 100%);
+        }
+
+        .unified-generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            animation: none;
+        }
+
+        /* 生成模式切換器 */
+        .generation-mode-toggle {
+            display: flex;
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 25px;
+            padding: 6px;
+            margin-bottom: 20px;
+            border: 2px solid rgba(148, 163, 184, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .mode-option {
+            flex: 1;
+            padding: 12px 18px;
+            text-align: center;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #94a3b8;
+        }
+
+        .mode-option.active {
+            background: linear-gradient(135deg, #60a5fa, #34d399);
+            color: #0f172a;
+            box-shadow: 0 4px 15px rgba(96, 165, 250, 0.3);
+        }
+
+        .mode-option:hover:not(.active) {
+            color: #cbd5e1;
+            background: rgba(96, 165, 250, 0.1);
+        }
+
+        /* 輸入框樣式 */
+        .input-field {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid rgba(148, 163, 184, 0.2);
+            border-radius: 15px;
+            font-size: 0.95rem;
+            background: rgba(15, 23, 42, 0.8);
+            color: #e2e8f0;
+            transition: all 0.3s ease;
+            margin-bottom: 12px;
+            backdrop-filter: blur(10px);
+        }
+
+        .input-field:focus {
+            border-color: #60a5fa;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.2);
+            background: rgba(30, 41, 59, 0.9);
+        }
+
+        .input-field::placeholder {
+            color: #64748b;
+        }
+
+        .textarea-field {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid rgba(148, 163, 184, 0.2);
+            border-radius: 15px;
+            font-size: 0.95rem;
+            background: rgba(15, 23, 42, 0.8);
+            color: #e2e8f0;
+            resize: vertical;
+            min-height: 100px;
+            transition: all 0.3s ease;
+            margin-bottom: 12px;
+            backdrop-filter: blur(10px);
+        }
+
+        .textarea-field:focus {
+            border-color: #60a5fa;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.2);
+            background: rgba(30, 41, 59, 0.9);
+        }
+
+        .textarea-field::placeholder {
+            color: #64748b;
+        }
+
+        .control-btn {
+            padding: 10px 18px;
+            border: 2px solid #60a5fa;
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(51, 65, 85, 0.8));
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #60a5fa;
+            transition: all 0.3s ease;
+            margin: 5px;
+            box-shadow: 0 4px 15px rgba(96, 165, 250, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .control-btn:hover {
+            background: linear-gradient(135deg, #60a5fa, #34d399);
+            color: #0f172a;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(96, 165, 250, 0.4);
+            border-color: transparent;
+        }
+
+        .control-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* 設定網格 */
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .setting-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .setting-item label {
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #cbd5e1;
+            font-size: 0.95rem;
+        }
+
+        .setting-item input,
+        .setting-item select {
+            padding: 12px;
+            border: 2px solid rgba(148, 163, 184, 0.2);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            background: rgba(15, 23, 42, 0.8);
+            color: #e2e8f0;
+            backdrop-filter: blur(10px);
+        }
+
+        .setting-item input:focus,
+        .setting-item select:focus {
+            border-color: #60a5fa;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+        }
+
+        .setting-item select option {
+            background: #1e293b;
+            color: #e2e8f0;
+        }
+
+        /* 風格模板 */
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .template-btn {
+            padding: 8px 15px;
+            border: 2px solid rgba(148, 163, 184, 0.3);
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #cbd5e1;
+            transition: all 0.3s ease;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .template-btn:hover {
+            border-color: #60a5fa;
+            background: rgba(96, 165, 250, 0.1);
+            color: #60a5fa;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(96, 165, 250, 0.2);
+        }
+
+        /* 載入動畫 */
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 25px 0;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(96, 165, 250, 0.2);
+            border-top: 4px solid #60a5fa;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 批量載入動畫 */
+        .batch-loading {
+            display: none;
+            text-align: center;
+            margin: 25px 0;
+            padding: 25px;
+            background: rgba(245, 158, 11, 0.1);
+            border-radius: 15px;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .batch-spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(245, 158, 11, 0.2);
+            border-top: 5px solid #f59e0b;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        .batch-progress {
+            background: rgba(245, 158, 11, 0.2);
+            border-radius: 20px;
+            height: 8px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+
+        .batch-progress-bar {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            height: 100%;
+            border-radius: 20px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* 圖像結果展示 */
+        .image-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 25px;
+            margin: 25px 0;
+        }
+
+        .image-result-item {
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            backdrop-filter: blur(20px);
+            transition: transform 0.3s ease;
+        }
+
+        .image-result-item:hover {
+            transform: translateY(-5px);
+        }
+
+        .preview-image {
+            max-width: 100%;
+            max-height: 280px;
+            border-radius: 15px;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            margin-bottom: 15px;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .preview-image:hover {
+            transform: scale(1.05);
+        }
+
+        .download-btn {
+            margin: 5px;
+            padding: 10px 18px;
+            background: linear-gradient(135deg, #34d399, #10b981);
+            color: #0f172a;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-size: 0.85rem;
+            box-shadow: 0 4px 15px rgba(52, 211, 153, 0.3);
+        }
+
+        .download-btn:hover {
+            background: linear-gradient(135deg, #10b981, #059669);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(52, 211, 153, 0.4);
+        }
+
+        /* 批量結果區域 */
+        .batch-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 25px 0;
+        }
+
+        .batch-item {
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            backdrop-filter: blur(20px);
+            transition: transform 0.3s ease;
+        }
+
+        .batch-item:hover {
+            transform: translateY(-3px);
+        }
+
+        .batch-image {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+            margin-bottom: 12px;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        /* 批量預覽模態 */
+        .batch-preview-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            backdrop-filter: blur(10px);
+        }
+
+        .batch-preview-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #1e293b, #334155);
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .preview-item {
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+            border: 1px solid rgba(148, 163, 184, 0.1);
+        }
+
+        .preview-item img {
+            max-width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: rgba(239, 68, 68, 0.8);
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 歷史記錄 */
+        .history-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 20px;
+        }
+
+        .history-item {
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease;
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            backdrop-filter: blur(20px);
+        }
+
+        .history-item:hover {
+            transform: translateY(-5px);
+        }
+
+        .history-image {
+            width: 100%;
+            height: 140px;
+            object-fit: cover;
+        }
+
+        .history-info {
+            padding: 12px;
+        }
+
+        .history-prompt {
+            font-size: 0.8rem;
+            color: #cbd5e1;
+            margin-bottom: 8px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .history-date {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-bottom: 10px;
+        }
+
+        .history-actions {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .history-btn {
+            padding: 5px 10px;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.3s ease;
+            color: #cbd5e1;
+            backdrop-filter: blur(10px);
+        }
+
+        .history-btn:hover {
+            background: rgba(96, 165, 250, 0.2);
+            border-color: #60a5fa;
+            color: #60a5fa;
+        }
+
+        .error,
+        .success {
+            padding: 18px;
+            border-radius: 12px;
+            margin: 20px 0;
+            display: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            backdrop-filter: blur(20px);
+        }
+
+        .error {
+            background: rgba(239, 68, 68, 0.1);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .success {
+            background: rgba(34, 197, 94, 0.1);
+            color: #86efac;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .info-box {
+            background: rgba(59, 130, 246, 0.1);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            font-size: 0.9rem;
+            color: #93c5fd;
+            backdrop-filter: blur(10px);
+        }
+
+        .warning-box {
+            background: rgba(245, 158, 11, 0.1);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            font-size: 0.9rem;
+            color: #fbbf24;
+            backdrop-filter: blur(10px);
+        }
+
+        /* API 狀態 */
+        .api-status {
+            position: fixed;
+            top: 25px;
+            right: 25px;
+            padding: 12px 20px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            z-index: 1000;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .api-status.connected {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #f0fdf4;
+        }
+
+        .api-status.connecting {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #fffbeb;
+        }
+
+        .api-status.error {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: #fef2f2;
+        }
+
+        /* 生成模式指示器 */
+        .generation-mode-indicator {
+            position: absolute;
+            bottom: 10px;
+            right: 15px;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 600;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 響應式設計 */
+        @media (max-width: 1200px) {
+            .main-content {
+                flex-direction: column;
+            }
+
+            .left-panel,
+            .right-panel {
+                width: 100%;
+                height: auto;
+                position: static;
+            }
+
+            /* 響應式滾動條調整 */
+            ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 20px 25px;
+            }
+
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .left-panel,
+            .center-panel,
+            .right-panel {
+                padding: 20px;
+            }
+
+            .settings-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .template-grid {
+                grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+            }
+
+            /* 手機端滾動條更細 */
+            ::-webkit-scrollbar {
+                width: 6px;
+                height: 6px;
+            }
+
+            ::-webkit-scrollbar-thumb {
+                border: 1px solid rgba(15, 23, 42, 0.5);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 ECF 增強版 Gemini 2.5 圖像生成器</h1>
+            <p>原生圖像生成 + 藝術風格 + 歷史記錄 + 進階設定 + 統一操作介面 + 高質感滾動條</p>
+        </div>
+
+        <div class="main-content">
+            <!-- 左側面板：API 設定與生成設定 -->
+            <div class="left-panel">
+                <div class="panel-section">
+                    <div class="collapsible-header" onclick="toggleSection('apiConfig')">
+                        <h3>🔑 Gemini API 設定</h3>
+                        <span id="apiConfigToggle">▼</span>
+                    </div>
+                    <div id="apiConfigContent" class="collapsible-content">
+                        <div class="info-box">
+                            🔐 您的 API Key 僅保存在當前會話的記憶體中，重新整理頁面後需要重新輸入。
+                        </div>
+                        <input
+                            type="password"
+                            id="apiKey"
+                            class="input-field"
+                            placeholder="請輸入您的 Gemini API Key"
+                            style="font-family: monospace; font-size: 0.85rem;"
+                        >
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button class="control-btn" onclick="toggleApiKeyVisibility(this)">👁️ 顯示</button>
+                            <button class="control-btn" onclick="testApiKey()">🔍 測試</button>
+                            <button class="control-btn" onclick="clearApiKey()">🗑️ 清空</button>
+                            <button class="control-btn" onclick="showApiKeyHelp()">❓ 幫助</button>
+                        </div>
+                        <div id="apiKeyStatus" style="margin-top: 12px; padding: 10px; border-radius: 8px; display: none; font-size: 0.85rem;"></div>
+                    </div>
+                </div>
+
+                <!-- 生成設定 -->
+                <div class="panel-section">
+                    <div class="collapsible-header" onclick="toggleSection('dimensions')">
+                        <h3>⚙️ 圖像尺寸設定</h3>
+                        <span id="dimensionsToggle">▼</span>
+                    </div>
+                    <div id="dimensionsContent" class="collapsible-content">
+                        <div class="settings-grid">
+                            <div class="setting-item">
+                                <label for="width">寬度</label>
+                                <input type="number" id="width" value="1024" min="256" max="2048" step="64">
+                            </div>
+                            <div class="setting-item">
+                                <label for="height">高度</label>
+                                <input type="number" id="height" value="1024" min="256" max="2048" step="64">
+                            </div>
+                        </div>
+
+                        <div class="warning-box">
+                            💡 快速尺寸設定：
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                            <button class="control-btn" onclick="setDimensions(1920, 1080)">🖥️ 1920×1080</button>
+                            <button class="control-btn" onclick="setDimensions(1080, 1920)">📱 1080×1920</button>
+                            <button class="control-btn" onclick="setDimensions(1024, 1024)">⬜ 1024×1024</button>
+                            <button class="control-btn" onclick="setDimensions(512, 768)">📄 512×768</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 批量生成設定 -->
+                <div class="panel-section">
+                    <div class="collapsible-header" onclick="toggleSection('batch')">
+                        <h3>🔢 批量生成設定</h3>
+                        <span id="batchToggle">▼</span>
+                    </div>
+                    <div id="batchContent" class="collapsible-content">
+                        <div class="setting-item">
+                            <label for="batchCount">批量生成數量</label>
+                            <input type="number" id="batchCount" value="3" min="1" max="20" step="1">
+                        </div>
+
+                        <div class="setting-item">
+                            <label for="batchDelay">生成間隔 (秒)</label>
+                            <input type="number" id="batchDelay" value="2" min="1" max="15" step="1">
+                            <small style="color: #64748b; margin-top: 5px; display: block;">📌 大批量生成建議使用3-5秒間隔</small>
+                        </div>
+
+                        <div class="warning-box">
+                            ⚠️ 批量生成注意事項：
+                            <br>• 建議設定適當的間隔時間避免API限制
+                            <br>• 單次最多生成20張圖像
+                            <br>• 失敗的圖像會自動跳過
+                            <br>• 大量生成請確保API配額充足
+                        </div>
+
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="control-btn" onclick="setBatchCount(3)">🔢 3張</button>
+                            <button class="control-btn" onclick="setBatchCount(5)">🔢 5張</button>
+                            <button class="control-btn" onclick="setBatchCount(10)">🔢 10張</button>
+                            <button class="control-btn" onclick="setBatchCount(20)">🔢 20張</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 藝術風格 -->
+                <div class="panel-section">
+                    <div class="collapsible-header" onclick="toggleSection('style')">
+                        <h3>🎨 藝術風格</h3>
+                        <span id="styleToggle">▼</span>
+                    </div>
+                    <div id="styleContent" class="collapsible-content">
+                        <div class="setting-item">
+                            <label for="style">選擇藝術風格</label>
+                            <select id="style">
+                                <option value="">無特定風格</option>
+                                <optgroup label="🎬 動畫風格">
+                                    <option value="Pixar animation style, 3D rendered">🎬 Pixar 動畫風格</option>
+                                    <option value="anime style, manga art">🌸 日本動漫風</option>
+                                    <option value="Studio Ghibli style, soft colors">🌿 吉卜力工作室</option>
+                                    <option value="cartoon style, colorful">🎪 卡通風格</option>
+                                </optgroup>
+                                <optgroup label="🎨 繪畫風格">
+                                    <option value="watercolor painting, soft brushstrokes">🖌️ 水彩畫</option>
+                                    <option value="oil painting, thick brushstrokes">🎨 油畫風格</option>
+                                    <option value="digital art, vibrant colors">💻 數位藝術</option>
+                                    <option value="photorealistic, high resolution">📷 寫實風格</option>
+                                    <option value="black and white sketch, pencil drawing, monochrome">✏️ 黑白素描</option>
+                                    <option value="colored pencil drawing, soft colors, textured">🖍️ 色鉛筆</option>
+                                </optgroup>
+                                <optgroup label="🌍 特效風格">
+                                    <option value="cyberpunk style, neon lights">🌃 賽博朋克</option>
+                                    <option value="fantasy art, magical atmosphere">🧙 奇幻風格</option>
+                                    <option value="sci-fi art, futuristic">🚀 科幻風格</option>
+                                    <option value="vintage style, retro aesthetic">📼 復古風格</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 風格模板 -->
+                <div class="panel-section">
+                    <div class="collapsible-header" onclick="toggleSection('templates')">
+                        <h3>📋 風格模板</h3>
+                        <span id="templatesToggle">▼</span>
+                    </div>
+                    <div id="templatesContent" class="collapsible-content">
+                        <div style="margin-bottom: 18px;">
+                            <h4 style="margin-bottom: 10px; font-size: 0.95rem; color: #cbd5e1;">🏃 基礎風格</h4>
+                            <div class="template-grid">
+                                <button class="template-btn" onclick="applyTemplate('人物攝影')">人物攝影</button>
+                                <button class="template-btn" onclick="applyTemplate('街拍風格')">街拍風格</button>
+                                <button class="template-btn" onclick="applyTemplate('豎型構圖')">豎型構圖</button>
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 18px;">
+                            <h4 style="margin-bottom: 10px; font-size: 0.95rem; color: #cbd5e1;">🎨 藝術風格</h4>
+                            <div class="template-grid">
+                                <button class="template-btn" onclick="applyTemplate('光芒背景')">光芒背景</button>
+                                <button class="template-btn" onclick="applyTemplate('古風意境')">古風意境</button>
+                                <button class="template-btn" onclick="applyTemplate('浪漫意境')">浪漫意境</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 負面提示詞 -->
+                <div class="panel-section">
+                    <div class="collapsible-header" onclick="toggleSection('negative')">
+                        <h3>❌ 負面提示詞</h3>
+                        <span id="negativeToggle">▼</span>
+                    </div>
+                    <div id="negativeContent" class="collapsible-content">
+                        <textarea
+                            id="negativePrompt"
+                            class="textarea-field"
+                            style="min-height: 80px; border-color: rgba(239, 68, 68, 0.5);"
+                            placeholder="不想要的元素：模糊、低畫質、扭曲..."
+                        ></textarea>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button class="control-btn" style="border-color: #ef4444; color: #ef4444;" onclick="applyCommonNegatives()">📝 常用</button>
+                            <button class="control-btn" style="border-color: #ef4444; color: #ef4444;" onclick="enhanceNegatives()">🔧 完善</button>
+                            <button class="control-btn" style="border-color: #ef4444; color: #ef4444;" onclick="clearNegatives()">🗑️ 清空</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 快速設定 -->
+                <div class="panel-section">
+                    <h3>⚡ 快速設定</h3>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="control-btn" onclick="randomSeed()">🎲 隨機種子</button>
+                        <button class="control-btn" onclick="resetSettings()">🔄 重置設定</button>
+                        <button class="control-btn" onclick="clearPrompt()">🗑️ 清空</button>
+                        <button class="control-btn" onclick="generateRandomPrompt()">🎲 隨機靈感</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 中間面板：主要工作區 -->
+            <div class="center-panel">
+                <!-- 提示詞輸入 -->
+                <div class="panel-section">
+                    <h3>✨ 描述您想要的圖像</h3>
+                    <textarea
+                        id="prompt"
+                        class="textarea-field"
+                        style="min-height: 120px;"
+                        placeholder="例如：Hi, can you create a 3d rendered image of a pig with wings and a top hat flying over a happy futuristic scifi city with lots of greenery?"
+                    ></textarea>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+                        <button class="control-btn" onclick="generateRandomPrompt()">🎲 隨機靈感</button>
+                        <button class="control-btn" onclick="clearPrompt()">🗑️ 清空</button>
+                        <button class="control-btn" onclick="enhancePrompt()">✨ 美化描述</button>
+                    </div>
+
+                    <!-- 生成模式切換器 -->
+                    <div class="generation-mode-toggle">
+                        <div class="mode-option active" id="singleMode" onclick="switchGenerationMode('single')">
+                            🧠 單張生成
+                        </div>
+                        <div class="mode-option" id="batchMode" onclick="switchGenerationMode('batch')">
+                            🔢 批量生成
+                        </div>
+                    </div>
+
+                    <!-- 統一生成按鈕 -->
+                    <button id="unifiedGenerateBtn" class="unified-generate-btn" onclick="generateImages()">
+                        <span id="generateLabel">🧠 生成圖像</span>
+                        <div class="generation-mode-indicator" id="modeIndicator">單張模式</div>
+                    </button>
+
+                    <div id="geminiLoading" class="loading">
+                        <div class="spinner"></div>
+                        <p style="font-size: 1.1rem; color: #9333ea; font-weight: 600;">Gemini 2.5 正在為您創作圖像，請稍候...</p>
+                    </div>
+
+                    <div id="batchLoading" class="batch-loading">
+                        <div class="batch-spinner"></div>
+                        <p style="font-size: 1.1rem; color: #f59e0b; font-weight: 600; margin-bottom: 15px;">批量生成進行中...</p>
+                        <div id="batchStatus" style="color: #fbbf24; font-size: 0.95rem; margin-bottom: 10px;"></div>
+                        <div class="batch-progress">
+                            <div id="batchProgressBar" class="batch-progress-bar"></div>
+                        </div>
+                        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 15px;">
+                            <button class="control-btn" onclick="pauseBatchGeneration()" id="pauseBatchBtn">⏸️ 暫停</button>
+                            <button class="control-btn" onclick="stopBatchGeneration()" id="stopBatchBtn">⏹️ 停止</button>
+                        </div>
+                    </div>
+
+                    <div id="error" class="error"></div>
+                    <div id="success" class="success"></div>
+                </div>
+
+                <!-- Gemini 原生圖像結果 -->
+                <div id="geminiResult" style="margin-top: 25px;"></div>
+
+                <!-- 批量生成結果 -->
+                <div id="batchResults" style="margin-top: 25px;"></div>
+            </div>
+
+            <!-- 右側面板：歷史記錄與說明 -->
+            <div class="right-panel">
+                <!-- 批量預覽與管理 -->
+                <div class="panel-section">
+                    <div class="collapsible-header" onclick="toggleSection('batchPreview')">
+                        <h3>🔍 批量預覽</h3>
+                        <span id="batchPreviewToggle">▼</span>
+                    </div>
+                    <div id="batchPreviewContent" class="collapsible-content">
+                        <div class="info-box">
+                            💡 批量生成完成後，所有圖像將在這裡顯示，支援預覽、下載和管理功能。
+                        </div>
+                        <div id="batchPreviewGrid" class="preview-grid" style="min-height: 100px; border: 2px dashed rgba(148, 163, 184, 0.3); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #64748b;">
+                            🖼️ 批量生成的圖像將在這裡預覽
+                        </div>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px;">
+                            <button class="control-btn" onclick="downloadAllBatch()">📥 全部下載</button>
+                            <button class="control-btn" onclick="selectAllBatch()">☑️ 全選</button>
+                            <button class="control-btn" onclick="clearBatchPreview()">🗑️ 清空預覽</button>
+                            <button class="control-btn" onclick="openBatchModal()">🔍 大圖預覽</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 歷史創作記錄 -->
+                <div class="panel-section">
+                    <div class="collapsible-header" onclick="toggleSection('history')">
+                        <h3>📚 歷史創作</h3>
+                        <span id="historyToggle">▼</span>
+                    </div>
+                    <div id="historyContent" class="collapsible-content">
+                        <div class="warning-box">
+                            💡 最多保留最近 20 筆創作記錄，超過後會自動刪除最舊的記錄。
+                        </div>
+                        <div id="historyGrid" class="history-grid">
+                            <div style="text-align: center; color: #64748b; padding: 40px;">
+                                🎨 您的創作歷史將在這裡顯示<br>
+                                <small>開始生成圖像後，最近作品會自動保存</small>
+                            </div>
+                        </div>
+                        <div style="text-align: center; margin-top: 20px;">
+                            <button class="control-btn" onclick="clearHistory()">🗑️ 清空歷史</button>
+                            <button class="control-btn" onclick="exportHistory()">📤 匯出歷史</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 使用說明 -->
+                <div class="panel-section">
+                    <div class="collapsible-header" onclick="toggleSection('guide')">
+                        <h3>📖 使用說明</h3>
+                        <span id="guideToggle">▼</span>
+                    </div>
+                    <div id="guideContent" class="collapsible-content collapsed">
+                        <div style="font-size: 0.9rem; line-height: 1.7; color: #cbd5e1;">
+                            <h4 style="color: #60a5fa; margin-bottom: 10px;">🔧 基本使用：</h4>
+                            <p style="margin-bottom: 12px;">1. 在左側設定 Gemini API Key</p>
+                            <p style="margin-bottom: 12px;">2. 在中間輸入英文描述文字</p>
+                            <p style="margin-bottom: 12px;">3. 選擇單張或批量生成模式</p>
+                            <p style="margin-bottom: 12px;">4. 點擊統一生成按鈕開始</p>
+
+                            <h4 style="color: #f59e0b; margin-bottom: 10px;">🔢 模式切換：</h4>
+                            <p style="margin-bottom: 12px;">• 單張模式：快速生成一張圖像</p>
+                            <p style="margin-bottom: 12px;">• 批量模式：一次生成多張圖像</p>
+                            <p style="margin-bottom: 12px;">• 智能切換：按鈕會自動顯示當前模式</p>
+                            <p style="margin-bottom: 12px;">• 統一操作：一個按鈕完成所有生成</p>
+
+                            <h4 style="color: #60a5fa; margin-bottom: 10px;">🎨 進階功能：</h4>
+                            <p style="margin-bottom: 12px;">• 使用藝術風格選擇器</p>
+                            <p style="margin-bottom: 12px;">• 應用風格模板快速套用</p>
+                            <p style="margin-bottom: 12px;">• 設定負面提示詞排除不要的元素</p>
+                            <p style="margin-bottom: 12px;">• 查看創作歷史記錄</p>
+                            <p style="margin-bottom: 12px;">• 享受高質感滾動條設計</p>
+
+                            <h4 style="color: #60a5fa; margin-bottom: 10px;">💡 提示：</h4>
+                            <p style="margin-bottom: 12px;">• 使用英文描述效果更好</p>
+                            <p style="margin-bottom: 12px;">• 詳細的描述能獲得更好的結果</p>
+                            <p style="margin-bottom: 12px;">• Gemini 2.5 支援原生圖像生成</p>
+                            <p style="margin-bottom: 12px;">• 批量生成建議設定適當間隔</p>
+                            <p style="margin-bottom: 12px;">• 滾動條與頁面主題完美融合</p>
+                            <p style="margin-bottom: 12px;">• 支援最多20張批量生成</p>
+                            <p>• 大量生成時請注意API使用配額</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量預覽模態 -->
+    <div id="batchPreviewModal" class="batch-preview-modal">
+        <div class="batch-preview-content">
+            <button class="close-btn" onclick="closeBatchModal()">×</button>
+            <h2 style="color: #f59e0b; margin-bottom: 20px; text-align: center;">🔍 批量圖像大圖預覽</h2>
+            <div id="modalPreviewGrid" class="preview-grid">
+                <!-- 預覽內容將動態插入 -->
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="download-btn" onclick="downloadAllBatch()">📥 下載全部</button>
+                <button class="control-btn" onclick="closeBatchModal()">關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- API 狀態指示器 -->
+    <div id="apiStatus" class="api-status connecting">🔄 連接 Gemini API</div>
+
+    <script>
+        // 全局變量
+        let userApiKey = "";
+        let historyData = [];
+        let batchResults = [];
+        let currentGenerationMode = 'single'; // 'single' 或 'batch'
+        let batchGeneration = {
+            isRunning: false,
+            isPaused: false,
+            currentIndex: 0,
+            totalCount: 0,
+            successCount: 0,
+            failedCount: 0
+        };
+
+        // 切換生成模式
+        function switchGenerationMode(mode) {
+            const singleModeBtn = document.getElementById('singleMode');
+            const batchModeBtn = document.getElementById('batchMode');
+            const modeIndicator = document.getElementById('modeIndicator');
+            const label = document.getElementById('generateLabel');
+
+            if (mode === 'single') {
+                singleModeBtn.classList.add('active');
+                batchModeBtn.classList.remove('active');
+                if (modeIndicator) modeIndicator.textContent = '單張模式';
+                if (label) label.textContent = '🧠 生成圖像';
+                currentGenerationMode = 'single';
+                showToast('🧠 已切換至單張生成模式');
+            } else {
+                singleModeBtn.classList.remove('active');
+                batchModeBtn.classList.add('active');
+                if (modeIndicator) modeIndicator.textContent = '批量模式';
+                if (label) label.textContent = '🔢 批量生成圖像';
+                currentGenerationMode = 'batch';
+                showToast('🔢 已切換至批量生成模式');
+            }
+        }
+
+        // 統一生成函數
+        async function generateImages() {
+            if (currentGenerationMode === 'single') {
+                await generateGeminiNativeImage();
+            } else {
+                await generateBatchImages();
+            }
+        }
+
+        // Gemini 2.5 圖像生成 API 配置
+        function getGeminiImageApiUrl() {
+            if (!userApiKey) {
+                throw new Error('請先在設定中輸入 Gemini API Key');
+            }
+            return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${userApiKey}`;
+        }
+
+        // Gemini 2.5 原生圖像生成函數
+        async function generateGeminiNativeImage() {
+            console.log('🧠 開始 Gemini 2.5 原生圖像生成...');
+
+            const promptEl = document.getElementById('prompt');
+
+            if (!promptEl) {
+                console.error('❌ 找不到 prompt 元素');
+                showToast('❌ 頁面初始化錯誤：缺少提示詞輸入框', 'error');
+                return;
+            }
+
+            let prompt = promptEl.value.trim();
+
+            if (!prompt) {
+                showToast('❌ 請輸入圖像描述', 'error');
+                return;
+            }
+
+            if (!userApiKey) {
+                showToast('❌ 請先在設定中輸入 Gemini API Key', 'error');
+                return;
+            }
+
+            // 添加選擇的藝術風格
+            const style = document.getElementById('style')?.value || '';
+            if (style && style.trim() !== '') {
+                prompt = `${prompt}, ${style}`;
+                console.log('✅ 已添加藝術風格:', style);
+            }
+
+            // 添加負面提示詞（如果 Gemini 支援的話）
+            const negativePrompt = document.getElementById('negativePrompt')?.value?.trim() || '';
+            if (negativePrompt) {
+                prompt = `${prompt}. Avoid: ${negativePrompt}`;
+                console.log('✅ 已添加負面提示詞:', negativePrompt);
+            }
+
+            console.log('🧠 最終 Gemini 提示詞:', prompt);
+
+            let geminiLoadingEl = document.getElementById('geminiLoading');
+            let unifiedGenerateBtn = document.getElementById('unifiedGenerateBtn');
+            let errorEl = document.getElementById('error');
+            let successEl = document.getElementById('success');
+            let geminiResultEl = document.getElementById('geminiResult');
+
+            if (!geminiResultEl) {
+                geminiResultEl = document.createElement('div');
+                geminiResultEl.id = 'geminiResult';
+                geminiResultEl.style.marginTop = '25px';
+                document.querySelector('.center-panel').appendChild(geminiResultEl);
+            }
+
+            if (geminiLoadingEl) geminiLoadingEl.style.display = 'block';
+            if (unifiedGenerateBtn) unifiedGenerateBtn.disabled = true;
+            if (errorEl) errorEl.style.display = 'none';
+            if (successEl) successEl.style.display = 'none';
+            if (geminiResultEl) geminiResultEl.innerHTML = '';
+
+            try {
+                const requestBody = {
+                    "contents": [{
+                        "parts": [
+                            { "text": prompt }
+                        ]
+                    }],
+                    "generationConfig": {
+                        "responseModalities": ["TEXT", "IMAGE"]
+                    }
+                };
+
+                const apiUrl = getGeminiImageApiUrl();
+                console.log('🔗 Gemini API URL:', apiUrl);
+                console.log('📤 請求內容:', requestBody);
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                console.log('📥 API 回應狀態:', response.status);
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    console.error('API 錯誤:', errorData);
+                    throw new Error(`API 請求失敗: ${response.status} - ${errorData.error?.message || '未知錯誤'}`);
+                }
+
+                const data = await response.json();
+                console.log('📥 Gemini API 回應:', data);
+
+                let imageBase64 = null;
+
+                if (data &&
+                    data.candidates &&
+                    data.candidates[0] &&
+                    data.candidates[0].content &&
+                    data.candidates[0].content.parts) {
+
+                    const parts = data.candidates[0].content.parts;
+                    for (const part of parts) {
+                        if (part.inlineData && part.inlineData.data) {
+                            imageBase64 = part.inlineData.data;
+                            break;
+                        }
+                    }
+                }
+
+                if (imageBase64) {
+                    displayGeminiNativeImage(imageBase64, prompt);
+
+                    if (successEl) {
+                        successEl.textContent = `🧠 Gemini 2.5 成功生成圖像！${style ? ` (風格: ${style})` : ''}`;
+                        successEl.style.display = 'block';
+                    }
+
+                    showToast(`🧠 Gemini 2.5 圖像生成成功！${style ? ' (含藝術風格)' : ''}`);
+
+                    // 自動添加到歷史記錄
+                    setTimeout(() => {
+                        addToHistory(`data:image/png;base64,${imageBase64}`, prompt, Date.now());
+                    }, 1000);
+
+                } else {
+                    throw new Error('無法從 Gemini API 回應中提取圖像數據');
+                }
+
+            } catch (error) {
+                console.error('❌ Gemini 圖像生成錯誤:', error);
+                if (errorEl) {
+                    errorEl.textContent = `❌ Gemini 生成失敗: ${error.message}`;
+                    errorEl.style.display = 'block';
+                }
+                showToast('❌ Gemini 生成失敗: ' + error.message, 'error');
+            } finally {
+                if (geminiLoadingEl) geminiLoadingEl.style.display = 'none';
+                if (unifiedGenerateBtn) unifiedGenerateBtn.disabled = false;
+            }
+        }
+
+        // 批量生成圖像
+        async function generateBatchImages() {
+            const promptEl = document.getElementById('prompt');
+            const batchCountEl = document.getElementById('batchCount');
+            const batchDelayEl = document.getElementById('batchDelay');
+
+            if (!promptEl || !batchCountEl || !batchDelayEl) {
+                showToast('❌ 頁面初始化錯誤', 'error');
+                return;
+            }
+
+            const basePrompt = promptEl.value.trim();
+            const batchCount = parseInt(batchCountEl.value) || 3;
+            const batchDelay = parseInt(batchDelayEl.value) || 2;
+
+            if (!basePrompt) {
+                showToast('❌ 請輸入圖像描述', 'error');
+                return;
+            }
+
+            if (!userApiKey) {
+                showToast('❌ 請先在設定中輸入 Gemini API Key', 'error');
+                return;
+            }
+
+            // 對大批量生成給出警告
+            if (batchCount >= 20) {
+                const confirmed = confirm(`⚠️ 您即將批量生成 ${batchCount} 張圖像！\n\n這將消耗較多API配額並需要較長時間。\n建議使用較長的生成間隔（${batchDelay >= 3 ? '✅ 當前間隔適當' : '❌ 建議設定3秒以上間隔'}）。\n\n確定要繼續嗎？`);
+                if (!confirmed) {
+                    return;
+                }
+            }
+
+            // 初始化批量生成狀態
+            batchGeneration = {
+                isRunning: true,
+                isPaused: false,
+                currentIndex: 0,
+                totalCount: batchCount,
+                successCount: 0,
+                failedCount: 0
+            };
+
+            batchResults = [];
+
+            // 顯示批量載入界面
+            const batchLoadingEl = document.getElementById('batchLoading');
+            const unifiedGenerateBtn = document.getElementById('unifiedGenerateBtn');
+            const batchStatusEl = document.getElementById('batchStatus');
+            const batchProgressBarEl = document.getElementById('batchProgressBar');
+
+            if (batchLoadingEl) batchLoadingEl.style.display = 'block';
+            if (unifiedGenerateBtn) unifiedGenerateBtn.disabled = true;
+            if (batchProgressBarEl) batchProgressBarEl.style.width = '0%';
+
+            // 清空之前的結果
+            const batchResultsEl = document.getElementById('batchResults');
+            if (batchResultsEl) batchResultsEl.innerHTML = '';
+
+            const batchTypeText = batchCount >= 20 ? '大批量' : batchCount >= 10 ? '中批量' : '小批量';
+            showToast(`🔢 開始${batchTypeText}生成 ${batchCount} 張圖像`);
+
+            // 記錄開始時間
+            const startTime = Date.now();
+
+            // 批量生成循環
+            for (let i = 0; i < batchCount; i++) {
+                if (!batchGeneration.isRunning) {
+                    break;
+                }
+
+                // 暫停處理
+                while (batchGeneration.isPaused && batchGeneration.isRunning) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+
+                if (!batchGeneration.isRunning) {
+                    break;
+                }
+
+                batchGeneration.currentIndex = i;
+
+                // 計算預估剩餘時間
+                const elapsed = Date.now() - startTime;
+                const avgTimePerImage = elapsed / (i + 1);
+                const estimatedRemaining = Math.ceil((batchCount - i - 1) * avgTimePerImage / 1000);
+
+                // 更新狀態
+                if (batchStatusEl) {
+                    batchStatusEl.textContent = `生成第 ${i + 1} 張 / 共 ${batchCount} 張 (成功: ${batchGeneration.successCount}, 失敗: ${batchGeneration.failedCount})${i > 0 ? ` | 預估剩餘: ${estimatedRemaining}秒` : ''}`;
+                }
+
+                // 更新進度條
+                const progress = ((i) / batchCount) * 100;
+                if (batchProgressBarEl) {
+                    batchProgressBarEl.style.width = `${progress}%`;
+                }
+
+                try {
+                    console.log(`🔢 批量生成第 ${i + 1} 張圖像...`);
+
+                    // 生成單張圖像
+                    const imageData = await generateSingleBatchImage(basePrompt, i + 1);
+
+                    if (imageData) {
+                        batchGeneration.successCount++;
+                        batchResults.push({
+                            id: Date.now() + i,
+                            imageUrl: `data:image/png;base64,${imageData}`,
+                            prompt: basePrompt,
+                            index: i + 1,
+                            timestamp: new Date().toLocaleString('zh-TW')
+                        });
+
+                        // 實時更新批量預覽
+                        updateBatchPreview();
+
+                        // 添加到歷史記錄
+                        addToHistory(`data:image/png;base64,${imageData}`, `${basePrompt} (批量 ${i + 1})`, Date.now() + i);
+                    } else {
+                        batchGeneration.failedCount++;
+                        console.warn(`❌ 第 ${i + 1} 張圖像生成失敗`);
+                    }
+
+                } catch (error) {
+                    batchGeneration.failedCount++;
+                    console.error(`❌ 第 ${i + 1} 張圖像生成錯誤:`, error);
+                }
+
+                // 生成間隔延遲（除了最後一張）
+                if (i < batchCount - 1 && batchGeneration.isRunning) {
+                    console.log(`⏱️ 等待 ${batchDelay} 秒後繼續...`);
+                    await new Promise(resolve => setTimeout(resolve, batchDelay * 1000));
+                }
+            }
+
+            // 批量生成完成
+            batchGeneration.isRunning = false;
+
+            // 計算總耗時
+            const totalTime = Math.ceil((Date.now() - startTime) / 1000);
+
+            // 更新最終狀態
+            if (batchStatusEl) {
+                batchStatusEl.textContent = `批量生成完成！成功: ${batchGeneration.successCount}, 失敗: ${batchGeneration.failedCount} | 總耗時: ${totalTime}秒`;
+            }
+
+            // 更新進度條到100%
+            if (batchProgressBarEl) {
+                batchProgressBarEl.style.width = '100%';
+            }
+
+            // 顯示批量結果
+            displayBatchResults();
+
+            // 隱藏載入界面
+            setTimeout(() => {
+                if (batchLoadingEl) batchLoadingEl.style.display = 'none';
+                if (unifiedGenerateBtn) unifiedGenerateBtn.disabled = false;
+
+                const successRate = Math.round((batchGeneration.successCount / batchCount) * 100);
+                showToast(`🎉 ${batchTypeText}生成完成！成功生成 ${batchGeneration.successCount} 張圖像 (成功率: ${successRate}%)`);
+            }, 2000);
+        }
+
+        // 生成單張批量圖像
+        async function generateSingleBatchImage(basePrompt, index) {
+            try {
+                // 添加選擇的藝術風格
+                let prompt = basePrompt;
+                const style = document.getElementById('style')?.value || '';
+                if (style && style.trim() !== '') {
+                    prompt = `${prompt}, ${style}`;
+                }
+
+                // 添加負面提示詞
+                const negativePrompt = document.getElementById('negativePrompt')?.value?.trim() || '';
+                if (negativePrompt) {
+                    prompt = `${prompt}. Avoid: ${negativePrompt}`;
+                }
+
+                // 為每張圖像添加輕微變化
+                const variations = [
+                    'slightly different angle',
+                    'different lighting',
+                    'different composition',
+                    'different perspective',
+                    'different mood'
+                ];
+
+                if (index > 1) {
+                    const variation = variations[(index - 2) % variations.length];
+                    prompt = `${prompt}, ${variation}`;
+                }
+
+                const requestBody = {
+                    "contents": [{
+                        "parts": [
+                            { "text": prompt }
+                        ]
+                    }],
+                    "generationConfig": {
+                        "responseModalities": ["TEXT", "IMAGE"]
+                    }
+                };
+
+                const apiUrl = getGeminiImageApiUrl();
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(`API 請求失敗: ${response.status} - ${errorData.error?.message || '未知錯誤'}`);
+                }
+
+                const data = await response.json();
+
+                if (data &&
+                    data.candidates &&
+                    data.candidates[0] &&
+                    data.candidates[0].content &&
+                    data.candidates[0].content.parts) {
+
+                    const parts = data.candidates[0].content.parts;
+                    for (const part of parts) {
+                        if (part.inlineData && part.inlineData.data) {
+                            return part.inlineData.data;
+                        }
+                    }
+                }
+
+                return null;
+
+            } catch (error) {
+                console.error(`生成第 ${index} 張圖像時出錯:`, error);
+                return null;
+            }
+        }
+
+        // 暫停批量生成
+        function pauseBatchGeneration() {
+            if (batchGeneration.isRunning) {
+                batchGeneration.isPaused = !batchGeneration.isPaused;
+                const pauseBtn = document.getElementById('pauseBatchBtn');
+                if (pauseBtn) {
+                    pauseBtn.textContent = batchGeneration.isPaused ? '▶️ 繼續' : '⏸️ 暫停';
+                }
+                showToast(batchGeneration.isPaused ? '⏸️ 批量生成已暫停' : '▶️ 批量生成已繼續');
+            }
+        }
+
+        // 停止批量生成
+        function stopBatchGeneration() {
+            if (batchGeneration.isRunning) {
+                batchGeneration.isRunning = false;
+                batchGeneration.isPaused = false;
+
+                const batchLoadingEl = document.getElementById('batchLoading');
+                const unifiedGenerateBtn = document.getElementById('unifiedGenerateBtn');
+
+                if (batchLoadingEl) batchLoadingEl.style.display = 'none';
+                if (unifiedGenerateBtn) unifiedGenerateBtn.disabled = false;
+
+                showToast('⏹️ 批量生成已停止');
+
+                // 如果有已生成的圖像，顯示結果
+                if (batchResults.length > 0) {
+                    displayBatchResults();
+                }
+            }
+        }
+
+        // 顯示批量結果
+        function displayBatchResults() {
+            const batchResultsEl = document.getElementById('batchResults');
+
+            if (!batchResultsEl || batchResults.length === 0) {
+                return;
+            }
+
+            let html = `
+                <div class="panel-section">
+                    <h3 style="color: #f59e0b; margin-bottom: 25px;">🔢 批量生成結果 (${batchResults.length} 張)</h3>
+                    <div class="batch-results">
+            `;
+
+            batchResults.forEach((item) => {
+                html += `
+                    <div class="batch-item">
+                        <h4 style="margin-bottom: 12px; color: #fbbf24; font-size: 0.9rem;">批量 ${item.index}</h4>
+                        <img src="${item.imageUrl}"
+                             class="batch-image"
+                             alt="批量圖像 ${item.index}"
+                             onclick="openImageInNewTab('${item.imageUrl}')"
+                             onerror="handleImageError(this)">
+                        <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 12px;">
+                            <button class="download-btn" style="font-size: 0.8rem; padding: 6px 12px;" onclick="downloadBatchImage('${item.imageUrl}', 'batch_${item.index}_${item.id}.png')">
+                                📥 下載
+                            </button>
+                            <button class="download-btn" style="font-size: 0.8rem; padding: 6px 12px;" onclick="copyImageUrl('${item.imageUrl}')">
+                                📋 複製
+                            </button>
+                        </div>
+                        <div style="margin-top: 10px; padding: 8px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.3);">
+                            <div style="font-size: 0.8rem; color: #fbbf24;">
+                                <strong>生成時間：</strong>${item.timestamp}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                    <div style="text-align: center; margin-top: 25px;">
+                        <button class="download-btn" onclick="downloadAllBatch()">📥 下載全部</button>
+                        <button class="control-btn" onclick="clearBatchResults()">🗑️ 清空結果</button>
+                    </div>
+                </div>
+            `;
+
+            batchResultsEl.innerHTML = html;
+        }
+
+        // 更新批量預覽
+        function updateBatchPreview() {
+            const batchPreviewGrid = document.getElementById('batchPreviewGrid');
+
+            if (!batchPreviewGrid || batchResults.length === 0) {
+                return;
+            }
+
+            let html = '';
+            batchResults.forEach((item) => {
+                html += `
+                    <div class="preview-item">
+                        <img src="${item.imageUrl}" alt="批量預覽 ${item.index}" onclick="openImageInNewTab('${item.imageUrl}')">
+                        <div style="font-size: 0.8rem; color: #fbbf24;">批量 ${item.index}</div>
+                    </div>
+                `;
+            });
+
+            batchPreviewGrid.innerHTML = html;
+        }
+
+        // 顯示 Gemini 原生生成的圖像
+        function displayGeminiNativeImage(imageBase64, prompt) {
+            let geminiResultDiv = document.getElementById('geminiResult');
+
+            if (!geminiResultDiv) {
+                geminiResultDiv = document.createElement('div');
+                geminiResultDiv.id = 'geminiResult';
+                geminiResultDiv.style.marginTop = '25px';
+                document.querySelector('.center-panel').appendChild(geminiResultDiv);
+            }
+
+            try {
+                const imageDataUrl = `data:image/png;base64,${imageBase64}`;
+                const escapedPrompt = escapeHtml(prompt);
+                const timestamp = new Date().toLocaleString('zh-TW');
+
+                let html = `
+                    <div class="panel-section">
+                        <h3 style="color: #9333ea; margin-bottom: 25px;">🧠 Gemini 2.5 原生圖像生成結果</h3>
+                        <div class="image-results">
+                            <div class="image-result-item">
+                                <h4 style="margin-bottom: 18px; color: #cbd5e1; font-size: 0.95rem;">Gemini 2.5 原生生成</h4>
+                                <img src="${imageDataUrl}"
+                                     class="preview-image"
+                                     alt="Gemini 2.5 生成的圖像"
+                                     onclick="openImageInNewTab('${imageDataUrl}')"
+                                     onerror="handleImageError(this)">
+                                <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 15px;">
+                                    <button class="download-btn" onclick="downloadGeminiImage('${imageBase64}', 'gemini_native_${Date.now()}.png')">
+                                        📥 下載
+                                    </button>
+                                    <button class="download-btn" onclick="copyImageUrl('${imageDataUrl}')">
+                                        📋 複製
+                                    </button>
+                                    <button class="download-btn" onclick="addToHistory('${imageDataUrl}', '${escapedPrompt}', ${Date.now()})">
+                                        💾 保存
+                                    </button>
+                                </div>
+                                <div style="margin-top: 15px; padding: 12px; background: rgba(147, 51, 234, 0.1); border-radius: 10px; border: 1px solid rgba(147, 51, 234, 0.3);">
+                                    <div style="font-size: 0.85rem; color: #c4b5fd;">
+                                        <strong>提示詞：</strong>${escapedPrompt}<br>
+                                        <strong>生成時間：</strong>${timestamp}<br>
+                                        <strong>模型：</strong>Gemini 2.0 Flash Experimental Image Generation
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                geminiResultDiv.innerHTML = html;
+
+            } catch (error) {
+                console.error('❌ 設置 Gemini 圖像顯示內容時發生錯誤:', error);
+                showToast('❌ 顯示 Gemini 圖像時發生錯誤: ' + error.message, 'error');
+            }
+        }
+
+        // 下載 Gemini 生成的圖像
+        function downloadGeminiImage(base64Data, filename) {
+            try {
+                const byteCharacters = atob(base64Data);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: 'image/png' });
+
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+                showToast('📥 Gemini 圖像開始下載');
+            } catch (error) {
+                console.error('下載 Gemini 圖像失敗:', error);
+                showToast('❌ 下載失敗: ' + error.message, 'error');
+            }
+        }
+
+        // ===== 批量管理：ZIP 打包全部下載（修正版） =====
+
+        // 將 dataURL 轉為 Uint8Array，供 JSZip 使用
+        function dataURLToUint8Array(dataURL) {
+            const parts = dataURL.split(',');
+            const base64 = parts[1];
+            const binaryString = atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes;
+        }
+
+        function downloadAllBatch() {
+            if (batchResults.length === 0) {
+                showToast('❌ 沒有可下載的批量圖像', 'error');
+                return;
+            }
+
+            if (typeof JSZip === 'undefined') {
+                showToast('❌ 找不到 JSZip，請確認網路允許載入 CDN', 'error');
+                return;
+            }
+
+            showToast(`📦 正在將 ${batchResults.length} 張圖片打包成 ZIP`);
+
+            const zip = new JSZip();
+            const folder = zip.folder('images');
+
+            batchResults.forEach((item) => {
+                const filename = `batch_${item.index}_${item.id}.png`;
+                const fileData = dataURLToUint8Array(item.imageUrl);
+                folder.file(filename, fileData);
+            });
+
+            zip.generateAsync({ type: 'blob' })
+                .then((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    const dateStr = new Date().toISOString().slice(0, 10);
+                    a.href = url;
+                    a.download = `gemini_batch_${dateStr}.zip`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    showToast(`📥 已開始下載 ZIP 檔（共 ${batchResults.length} 張圖片）`);
+                })
+                .catch((error) => {
+                    console.error('ZIP 產生失敗:', error);
+                    showToast('❌ 建立 ZIP 檔失敗: ' + error.message, 'error');
+                });
+        }
+
+        function downloadBatchImage(imageUrl, filename) {
+            try {
+                const link = document.createElement('a');
+                link.href = imageUrl;
+                link.download = filename;
+                link.target = '_blank';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (error) {
+                console.error('下載批量圖像失敗:', error);
+                showToast('❌ 下載失敗: ' + error.message, 'error');
+            }
+        }
+
+        function selectAllBatch() {
+            showToast('☑️ 全選功能開發中...');
+        }
+
+        function clearBatchPreview() {
+            const batchPreviewGrid = document.getElementById('batchPreviewGrid');
+            if (batchPreviewGrid) {
+                batchPreviewGrid.innerHTML = `
+                    <div style="text-align: center; color: #64748b; padding: 40px;">
+                        🖼️ 批量生成的圖像將在這裡預覽
+                    </div>
+                `;
+            }
+            batchResults = [];
+            showToast('🗑️ 已清空批量預覽');
+        }
+
+        function clearBatchResults() {
+            const batchResultsEl = document.getElementById('batchResults');
+            if (batchResultsEl) {
+                batchResultsEl.innerHTML = '';
+            }
+            clearBatchPreview();
+            showToast('🗑️ 已清空批量結果');
+        }
+
+        // 批量預覽模態功能
+        function openBatchModal() {
+            if (batchResults.length === 0) {
+                showToast('❌ 沒有可預覽的批量圖像', 'error');
+                return;
+            }
+
+            const modal = document.getElementById('batchPreviewModal');
+            const modalGrid = document.getElementById('modalPreviewGrid');
+
+            if (!modal || !modalGrid) {
+                return;
+            }
+
+            let html = '';
+            batchResults.forEach((item) => {
+                html += `
+                    <div class="preview-item">
+                        <img src="${item.imageUrl}" alt="批量大圖 ${item.index}">
+                        <div style="font-size: 0.9rem; color: #fbbf24; margin-top: 8px;">批量 ${item.index}</div>
+                        <div style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">${item.timestamp}</div>
+                        <div style="margin-top: 8px;">
+                            <button class="download-btn" style="font-size: 0.8rem; padding: 4px 8px;" onclick="downloadBatchImage('${item.imageUrl}', 'batch_${item.index}_${item.id}.png')">
+                                📥 下載
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            modalGrid.innerHTML = html;
+            modal.style.display = 'block';
+        }
+
+        function closeBatchModal() {
+            const modal = document.getElementById('batchPreviewModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        // API Key 管理功能
+        function toggleApiKeyVisibility(btn) {
+            const apiKeyInput = document.getElementById('apiKey');
+            const toggleBtn = btn;
+
+            if (apiKeyInput.type === 'password') {
+                apiKeyInput.type = 'text';
+                toggleBtn.textContent = '👁️ 隱藏';
+                showToast('👁️ API Key 已顯示');
+            } else {
+                apiKeyInput.type = 'password';
+                toggleBtn.textContent = '👁️ 顯示';
+                showToast('🔒 API Key 已隱藏');
+            }
+        }
+
+        async function testApiKey() {
+            const apiKeyInput = document.getElementById('apiKey');
+            const key = apiKeyInput.value.trim();
+
+            if (!key) {
+                showToast('❌ 請先輸入 API Key', 'error');
+                return;
+            }
+
+            if (!key.startsWith('AIza') || key.length < 30) {
+                showToast('❌ API Key 格式不正確', 'error');
+                showApiKeyStatus('error', '❌ API Key 格式錯誤：應以 "AIza" 開頭且長度足夠');
+                return;
+            }
+
+            try {
+                showApiKeyStatus('info', '🔍 測試 API Key 連接...');
+                updateApiStatus('connecting', '🔄 測試連接中...');
+
+                userApiKey = key;
+
+                const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${userApiKey}`;
+                const testBody = {
+                    contents: [{
+                        parts: [{
+                            text: "Hello, test connection"
+                        }]
+                    }],
+                    generationConfig: {
+                        temperature: 0.1,
+                        maxOutputTokens: 10
+                    }
+                };
+
+                const response = await fetch(testUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(testBody)
+                });
+
+                if (response.ok) {
+                    await response.json();
+                    showApiKeyStatus('success', '✅ API Key 測試成功，連接正常');
+                    showToast('✅ API Key 有效且可以正常使用');
+                    updateApiStatus('connected', '✅ Gemini API 已連接');
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(`API 測試失敗: ${response.status} - ${errorData.error?.message || '未知錯誤'}`);
+                }
+
+            } catch (error) {
+                console.error('API Key 測試錯誤:', error);
+                showApiKeyStatus('error', '❌ API Key 測試失敗: ' + error.message);
+                showToast('❌ API Key 測試失敗: ' + error.message, 'error');
+                updateApiStatus('error', '❌ API 連接失敗');
+
+                if (error.message.includes('CORS') || error.message.includes('fetch') || error.message.includes('NetworkError')) {
+                    showApiKeyStatus('warning', '⚠️ 由於網路限制無法直接測試，但已保存 API Key。請嘗試使用功能驗證。');
+                    userApiKey = key;
+                    updateApiStatus('connecting', '⚠️ API Key 已保存');
+                }
+            }
+        }
+
+        function clearApiKey() {
+            const apiKeyInput = document.getElementById('apiKey');
+
+            if (confirm('確定要清空 API Key 嗎？')) {
+                apiKeyInput.value = '';
+                apiKeyInput.type = 'password';
+                userApiKey = '';
+
+                const toggleBtn = document.querySelector('button[onclick^="toggleApiKeyVisibility"]');
+                if (toggleBtn) {
+                    toggleBtn.textContent = '👁️ 顯示';
+                }
+
+                showApiKeyStatus('info', '🗑️ API Key 已清空');
+                showToast('🗑️ API Key 已清空');
+                updateApiStatus('connecting', '🔄 請設定 API Key');
+            }
+        }
+
+        function showApiKeyHelp() {
+            const helpText = `📖 如何獲取 Gemini API Key：
+
+1. 訪問 Google AI Studio: https://aistudio.google.com/app/apikey
+2. 登錄您的 Google 帳戶
+3. 點擊 "Create API Key" 按鈕
+4. 選擇或創建一個 Google Cloud 項目
+5. 複製生成的 API Key
+6. 將 API Key 粘貼到上方輸入框
+
+⚠️ 重要注意事項：
+- API Key 以 "AIza" 開頭
+- 請妥善保管您的 API Key，不要與他人分享
+- 本工具的 API Key 僅保存在您的瀏覽器中，不會上傳到服務器
+
+💡 使用提示：
+- 輸入 API Key 後，點擊 "測試" 按鈕驗證有效性
+- 使用 "顯示/隱藏" 按鈕查看輸入的內容
+- 如需更換 API Key，請先點擊 "清空" 按鈕
+- 🆕 支援 Gemini 2.5 原生圖像生成功能
+- 🆕 支援統一按鈕智能切換單張/批量模式`;
+            alert(helpText);
+        }
+
+        function showApiKeyStatus(type, message) {
+            const statusDiv = document.getElementById('apiKeyStatus');
+            if (!statusDiv) return;
+            statusDiv.style.display = 'block';
+
+            if (type === 'success') {
+                statusDiv.style.background = 'rgba(34, 197, 94, 0.1)';
+                statusDiv.style.color = '#86efac';
+                statusDiv.style.border = '1px solid rgba(34, 197, 94, 0.3)';
+            } else if (type === 'error') {
+                statusDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+                statusDiv.style.color = '#fca5a5';
+                statusDiv.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+            } else {
+                statusDiv.style.background = 'rgba(59, 130, 246, 0.1)';
+                statusDiv.style.color = '#93c5fd';
+                statusDiv.style.border = '1px solid rgba(59, 130, 246, 0.3)';
+            }
+
+            statusDiv.textContent = message;
+
+            setTimeout(() => {
+                statusDiv.style.opacity = '0.8';
+            }, 5000);
+        }
+
+        // 批量設定功能
+        function setBatchCount(count) {
+            document.getElementById('batchCount').value = count;
+
+            // 根據數量給出相應提示
+            let message = `🔢 已設定批量生成數量為 ${count} 張`;
+            let toastType = 'success';
+
+            if (count >= 20) {
+                message += ' (大批量生成，請注意API配額)';
+                toastType = 'warning';
+            } else if (count >= 10) {
+                message += ' (中等批量，建議適當間隔)';
+            }
+
+            showToast(message, toastType);
+        }
+
+        // 提示詞相關功能
+        function generateRandomPrompt() {
+            const prompts = [
+                'Hi, can you create a 3d rendered image of a pig with wings and a top hat flying over a happy futuristic scifi city with lots of greenery?',
+                'Create a beautiful watercolor painting of a sunset over mountains with a peaceful lake in the foreground',
+                'Generate a cyberpunk style image of a neon-lit street in Tokyo at night with rain reflections',
+                'Create a fantasy art image of a magical forest with glowing mushrooms and fairy lights',
+                'Generate a photorealistic image of a golden retriever puppy playing in a flower field',
+                'Create a steampunk style airship flying through clouds with Victorian architecture',
+                'Generate an oil painting style portrait of a wise old owl perched on an ancient book',
+                'Create a minimalist geometric art piece with vibrant colors and clean lines',
+                'Generate a vintage poster style image of a classic car on Route 66',
+                'Create a digital art image of a space station orbiting Earth with stars in the background'
+            ];
+
+            const randomPrompt = prompts[Math.floor(Math.random() * prompts.length)];
+
+            document.getElementById('prompt').value = randomPrompt;
+            showToast('🎲 已生成隨機靈感提示詞');
+        }
+
+        function clearPrompt() {
+            document.getElementById('prompt').value = '';
+            showToast('🗑️ 已清空提示詞');
+        }
+
+        function enhancePrompt() {
+            const promptTextarea = document.getElementById('prompt');
+            const currentPrompt = promptTextarea.value.trim();
+
+            if (!currentPrompt) {
+                showToast('❌ 請先輸入一些描述', 'error');
+                return;
+            }
+
+            const enhancements = [
+                'high quality',
+                'detailed',
+                'masterpiece',
+                'professional lighting',
+                'vibrant colors'
+            ];
+
+            const enhancedPrompt = currentPrompt + ', ' + enhancements.join(', ');
+            promptTextarea.value = enhancedPrompt;
+
+            showToast('✨ 已美化提示詞');
+        }
+
+        // 風格模板功能
+        function applyTemplate(templateName) {
+            const promptTextarea = document.getElementById('prompt');
+            const templates = {
+                '人物攝影': 'portrait photography, professional lighting, high quality, detailed face, sharp focus',
+                '豎型構圖': 'vertical composition, tall aspect ratio, elegant pose, full body shot',
+                '街拍風格': 'street photography style, urban background, candid shot, natural lighting',
+                '光芒背景': 'radiant background, glowing light, ethereal atmosphere, dreamy lighting',
+                '古風意境': 'traditional Chinese style, ancient aesthetic, elegant costume, cultural atmosphere',
+                '浪漫意境': 'romantic atmosphere, soft lighting, dreamy mood, emotional depth'
+            };
+
+            const templatePrompt = templates[templateName] || templateName;
+            const currentPrompt = promptTextarea.value.trim();
+
+            if (currentPrompt) {
+                promptTextarea.value = `${currentPrompt}, ${templatePrompt}`;
+            } else {
+                promptTextarea.value = templatePrompt;
+            }
+
+            showToast(`✨ 已應用 "${templateName}" 風格模板`);
+        }
+
+        // 負面提示詞功能
+        function applyCommonNegatives() {
+            const negativeTextarea = document.getElementById('negativePrompt');
+            const commonNegatives = 'blurry, low quality, distorted, ugly, deformed, extra fingers, bad anatomy, watermark, signature, text';
+            negativeTextarea.value = commonNegatives;
+            showToast('📝 已套用常用排除項目');
+        }
+
+        function enhanceNegatives() {
+            const negativeTextarea = document.getElementById('negativePrompt');
+            const currentNegatives = negativeTextarea.value.trim();
+            const enhancements = 'worst quality, low resolution, jpeg artifacts, cropped, duplicate, mutation';
+
+            if (currentNegatives) {
+                negativeTextarea.value = `${currentNegatives}, ${enhancements}`;
+            } else {
+                negativeTextarea.value = enhancements;
+            }
+
+            showToast('🔧 已完善負面提示詞');
+        }
+
+        function clearNegatives() {
+            document.getElementById('negativePrompt').value = '';
+            showToast('🗑️ 已清空負面提示詞');
+        }
+
+        // 快速設定功能
+        function setDimensions(width, height) {
+            document.getElementById('width').value = width;
+            document.getElementById('height').value = height;
+            showToast(`📐 已設定尺寸為 ${width}×${height}`);
+        }
+
+        function randomSeed() {
+            const randomValue = Math.floor(Math.random() * 999999) + 1;
+            showToast(`🎲 隨機種子功能已觸發: ${randomValue}`);
+        }
+
+        function resetSettings() {
+            document.getElementById('width').value = '1024';
+            document.getElementById('height').value = '1024';
+            document.getElementById('style').value = '';
+            document.getElementById('negativePrompt').value = '';
+            document.getElementById('batchCount').value = '3';
+            document.getElementById('batchDelay').value = '2';
+            showToast('🔄 已重置所有設定');
+        }
+
+        // 摺疊/展開功能
+        function toggleSection(sectionName) {
+            const content = document.getElementById(sectionName + 'Content');
+            let toggleElement = document.getElementById(sectionName + 'Toggle');
+
+            if (!content) {
+                console.warn(`找不到內容元素: ${sectionName}Content`);
+                return;
+            }
+
+            if (content.classList.contains('collapsed')) {
+                content.classList.remove('collapsed');
+                if (toggleElement) toggleElement.textContent = '▼';
+            } else {
+                content.classList.add('collapsed');
+                if (toggleElement) toggleElement.textContent = '▶';
+            }
+        }
+
+        // 歷史記錄功能
+        function addToHistory(imageUrl, prompt, seed) {
+            const historyItem = {
+                id: Date.now(),
+                imageUrl: imageUrl,
+                prompt: prompt,
+                seed: seed,
+                timestamp: new Date().toLocaleString('zh-TW'),
+                type: prompt.includes('批量') ? 'batch' : 'single'
+            };
+
+            historyData.unshift(historyItem);
+
+            if (historyData.length > 20) {
+                historyData = historyData.slice(0, 20);
+            }
+
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const historyGrid = document.getElementById('historyGrid');
+
+            if (historyData.length === 0) {
+                historyGrid.innerHTML = `
+                    <div style="text-align: center; color: #64748b; padding: 40px;">
+                        🎨 您的創作歷史將在這裡顯示<br>
+                        <small>開始生成圖像後，最近作品會自動保存</small>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            historyData.forEach(item => {
+                const typeIcon = item.type === 'batch' ? '🔢' : '🧠';
+                const typeText = item.type === 'batch' ? '批量' : '單張';
+
+                html += `
+                    <div class="history-item">
+                        <img src="${item.imageUrl}"
+                             class="history-image"
+                             alt="歷史圖像"
+                             onclick="openImageInNewTab('${item.imageUrl}')"
+                             onerror="this.style.display='none'">
+                        <div class="history-info">
+                            <div class="history-prompt">${escapeHtml(item.prompt)}</div>
+                            <div class="history-date">${item.timestamp}</div>
+                            <div class="history-date">${typeIcon} ${typeText} | ID: ${item.seed}</div>
+                            <div class="history-actions">
+                                <button class="history-btn" onclick="reusePrompt('${escapeHtml(item.prompt)}')">📝 重用</button>
+                                <button class="history-btn" onclick="downloadHistoryImage('${item.imageUrl}', 'history_${item.id}.png')">📥 下載</button>
+                                <button class="history-btn" onclick="removeFromHistory(${item.id})">🗑️ 刪除</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            historyGrid.innerHTML = html;
+        }
+
+        function reusePrompt(prompt) {
+            // 清理批量標記
+            const cleanPrompt = prompt.replace(/\s*\(批量\s*\d+\)\s*$/, '');
+            document.getElementById('prompt').value = cleanPrompt;
+            showToast('📝 已重用歷史提示詞');
+        }
+
+        function removeFromHistory(id) {
+            if (confirm('確定要刪除這個歷史記錄嗎？')) {
+                historyData = historyData.filter(item => item.id !== id);
+                renderHistory();
+                showToast('🗑️ 已刪除歷史記錄');
+            }
+        }
+
+        function clearHistory() {
+            if (confirm('確定要清空所有歷史記錄嗎？')) {
+                historyData = [];
+                renderHistory();
+                showToast('🗑️ 已清空所有歷史記錄');
+            }
+        }
+
+        function exportHistory() {
+            if (historyData.length === 0) {
+                showToast('❌ 沒有歷史記錄可匯出', 'error');
+                return;
+            }
+
+            const exportData = {
+                exportTime: new Date().toISOString(),
+                totalCount: historyData.length,
+                data: historyData.map(item => ({
+                    id: item.id,
+                    prompt: item.prompt,
+                    timestamp: item.timestamp,
+                    type: item.type,
+                    seed: item.seed
+                }))
+            };
+
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `gemini_history_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            showToast('📤 歷史記錄已匯出');
+        }
+
+        function downloadHistoryImage(imageUrl, filename) {
+            const link = document.createElement('a');
+            link.href = imageUrl;
+            link.download = filename;
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('📥 開始下載歷史圖像');
+        }
+
+        // 工具函數
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function openImageInNewTab(imageUrl) {
+            window.open(imageUrl, '_blank');
+        }
+
+        function handleImageError(img) {
+            img.style.display = 'none';
+            const container = img.closest('.image-result-item, .batch-item');
+            if (container) {
+                const errorDiv = document.createElement('div');
+                errorDiv.style.cssText = 'text-align: center; padding: 40px; color: #f87171; background: rgba(239, 68, 68, 0.1); border-radius: 15px; font-size: 0.95rem; border: 1px solid rgba(239, 68, 68, 0.3);';
+                errorDiv.innerHTML = '<h4>❌ 圖像加載失敗</h4><p>請稍後重試或嘗試不同的設定</p>';
+                container.insertBefore(errorDiv, img);
+            }
+        }
+
+        function copyImageUrl(imageUrl) {
+            navigator.clipboard.writeText(imageUrl).then(() => {
+                showToast('📋 圖像鏈接已複製到剪貼板');
+            }).catch(() => {
+                showToast('❌ 複製失敗', 'error');
+            });
+        }
+
+        // 基礎工具函數
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.textContent = message;
+            const bgColor = type === 'error' ? 'linear-gradient(135deg, #ef4444, #dc2626)' :
+                type === 'warning' ? 'linear-gradient(135deg, #f59e0b, #d97706)' :
+                    'linear-gradient(135deg, #10b981, #059669)';
+            toast.style.cssText = `
+                position: fixed;
+                top: 90px;
+                right: 25px;
+                background: ${bgColor};
+                color: white;
+                padding: 15px 25px;
+                border-radius: 30px;
+                z-index: 1001;
+                box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+                font-weight: 600;
+                font-size: 0.95rem;
+                backdrop-filter: blur(20px);
+                border: 1px solid rgba(255,255,255,0.1);
+            `;
+
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        function updateApiStatus(status, message) {
+            const statusEl = document.getElementById('apiStatus');
+            if (!statusEl) return;
+            statusEl.className = `api-status ${status}`;
+            statusEl.textContent = message;
+
+            if (status === 'connected') {
+                setTimeout(() => {
+                    statusEl.style.opacity = '0.8';
+                }, 3000);
+            }
+        }
+
+        // 模態關閉事件（點擊背景關閉）
+        document.addEventListener('click', function (event) {
+            const modal = document.getElementById('batchPreviewModal');
+            if (event.target === modal) {
+                closeBatchModal();
+            }
+        });
+
+        // 鍵盤事件（ESC 關閉模態）
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeBatchModal();
+            }
+        });
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('🚀 ECF 增強版 Gemini 2.5 圖像生成器已載入（高質感滾動條版 + ZIP 批次下載）');
+            updateApiStatus('connecting', '🔄 請設定 API Key');
+
+            // 初始化歷史記錄
+            renderHistory();
+
+            // 監聽 API Key 輸入變化
+            const apiKeyInput = document.getElementById('apiKey');
+            if (apiKeyInput) {
+                apiKeyInput.addEventListener('input', function () {
+                    const key = this.value.trim();
+                    if (key) {
+                        userApiKey = key;
+                        updateApiStatus('connecting', '🔑 API Key 已設定');
+                    } else {
+                        userApiKey = '';
+                        updateApiStatus('connecting', '🔄 請設定 API Key');
+                    }
+                });
+            }
+
+            // 顯示歡迎訊息
+            showToast('🚀 歡迎使用 ECF 增強版 Gemini 2.5 圖像生成器！已支援 ZIP 批次下載');
+        });
+    </script>
+
+    <!-- JSZip 用於 ZIP 批次下載 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <script src="https://cokojoecf.yay.boo/javascripts/yayboo.js"></script>
+</body>
+</html>
